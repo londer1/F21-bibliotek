@@ -1,28 +1,50 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
-const app = express();
+const jwt = require('jsonwebtoken');
+const mysql = require('mysql2');
 
-//databaseforbindelsen
-const db = mysql.createPool({
+const app = express();
+const port = 3000;
+
+//mysql kobling
+const db = mysql.createConnection({
     host: 'localhost',
-    user: 'londer',
-    assword: 'pasword',
+    user: 'root',
+    password: 'password',
     database: 'f21'
 });
 
-//henter alle bøker
-app.get('/bøker', async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT * FROM Biblioteksbøker');
-        res.json(rows);
-    } catch (error) {
-        console.error('Feil under henting av bøker:', error);
-        res.status(500).send('Noe gikk galt');
-    }
+app.use(express.json());
+
+//middleware for autentisering
+const authenticateToken = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return res.sendStatus(403);
+    jwt.verify(token, 'secretkey', (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+    });
+};
+
+//rute for å hente alle bøker
+app.get('/books', (req, res) => {
+  db.query('SELECT * FROM Biblioteksbøker', (err, result) => {
+    if (err) throw err;
+    res.json(result);
+    });
 });
 
-//starter serveren
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server kjører på http://localhost:${PORT}`);
+//rute for å legge til en bok (kun for bibliotekar)
+app.post('/books', authenticateToken, (req, res) => {
+    if (req.user.role !== 'bibliotekar') return res.sendStatus(403);
+    const { tittel, forfatter, isbn } = req.body;
+    const query = 'INSERT INTO Biblioteksbøker (Tittel, Forfatter, ISBN) VALUES (?, ?, ?)';
+    db.query(query, [tittel, forfatter, isbn], (err, result) => {
+    if (err) throw err;
+    res.status(201).json({ message: 'Bok lagt til', bokID: result.insertId });
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
