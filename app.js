@@ -2,15 +2,15 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const app = express();
 
-// Konfigurer databaseforbindelsen
+//databaseforbindelsen
 const db = mysql.createPool({
     host: 'localhost',
-    user: 'londer', // erstatt med ditt MySQL-brukernavn
-    assword: 'pasword', // erstatt med ditt MySQL-passord
+    user: 'londer',
+    assword: 'pasword',
     database: 'f21'
 });
 
-// Hent alle bøker
+//henter alle bøker
 app.get('/bøker', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM Biblioteksbøker');
@@ -21,7 +21,7 @@ app.get('/bøker', async (req, res) => {
     }
 });
 
-// Start serveren
+//starter serveren
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server kjører på http://localhost:${PORT}`);
