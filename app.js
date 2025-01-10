@@ -62,6 +62,11 @@ app.post('/register', (req, res) => {
     });
 });
 
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
