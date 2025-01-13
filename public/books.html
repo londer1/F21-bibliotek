@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bøker - Bibliotek Utlånssystem</title>
+</head>
+<body>
+    <h1>Bokliste</h1>
+
+    <div id="book-list">Laster bøker...</div>
+    <button id="back-to-home">Tilbake til Hjem</button>
+
+    <script>
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html'; //hvis ikke logget inn send til login.html
+            } else {
+                loadBooks();
+            }
+        };
+
+        function loadBooks() {
+            const token = localStorage.getItem('token');
+            fetch('http://localhost:3000/books', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Kunne ikke hente bøker');
+                }
+                return response.json();
+            })
+            .then(books => {
+                const bookListDiv = document.getElementById('book-list');
+                bookListDiv.innerHTML = ''; //tømmer div'en før vi fyller med bøker
+                if (books.length > 0) {
+                    books.forEach(book => {
+                        const bookElement = document.createElement('div');
+                        bookElement.innerText = `Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter}`;
+                        bookListDiv.appendChild(bookElement);
+                    });
+                } else {
+                    bookListDiv.innerText = 'Ingen bøker tilgjengelig.';
+                }
+            })
+            .catch(error => {
+                alert('Noe gikk galt ved lasting av bøker.');
+            });
+        }
+
+        document.getElementById('back-to-home').addEventListener('click', function() {
+            window.location.href = 'index.html'; //tilbake til index.html
+        });
+    </script>
+</body>
+</html>

@@ -7,84 +7,31 @@
 </head>
 <body>
     <h1>Velkommen til biblioteket til londer bror</h1>
-    
-    <!-- loginskjerm -->
-    <div id="login-form">
-        <h2>Logg inn</h2>
-        <form id="login">
-            <label for="username">Brukernavn:</label>
-            <input type="text" id="username" name="username" required><br><br>
-            <label for="password">Passord:</label>
-            <input type="password" id="password" name="password" required><br><br>
-            <button type="submit">Logg inn</button>
-        </form>
-        <p id="login-error" style="color: red;"></p>
+
+    <div id="user-info" style="display: none;">
+        <p>Du er logget inn!</p>
+        <button id="view-books">Se bøker</button>
+        <button id="logout">Logg ut</button>
     </div>
 
-    <!-- bokliste -->
-    <div id="book-list" style="display: none;"></div>
-
     <script>
-        //login
-        document.getElementById('login').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            fetch('http://localhost:3000/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.token) {
-                    localStorage.setItem('token', data.token);
-                    document.getElementById('login-form').style.display = 'none';
-                    loadBooks();
-                } else {
-                    document.getElementById('login-error').innerText = 'Feil brukernavn eller passord.';
-                }
-            })
-            .catch(error => {
-                document.getElementById('login-error').innerText = 'Noe gikk galt, prøv igjen.';
-            });
-        });
-
-        function loadBooks() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-
-            fetch('http://localhost:3000/books', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(response => response.json())
-            .then(books => {
-                const bookListDiv = document.getElementById('book-list');
-                bookListDiv.style.display = 'block';
-                books.forEach(book => {
-                    const bookElement = document.createElement('div');
-                    bookElement.innerText = `Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter}`;
-                    bookListDiv.appendChild(bookElement);
-                });
-            })
-            .catch(error => {
-                document.getElementById('login-form').style.display = 'block';
-                alert('Du må logge inn først!');
-            });
-        }
-
         window.onload = () => {
             const token = localStorage.getItem('token');
-            if (token) {
-                document.getElementById('login-form').style.display = 'none';
-                loadBooks();
+            if (!token) {
+                window.location.href = 'login.html'; //hvis ikke logget inn, send til login.html
+            } else {
+                document.getElementById('user-info').style.display = 'block';
             }
         };
+
+        document.getElementById('view-books').addEventListener('click', function() {
+            window.location.href = 'books.html'; //sender til books.html
+        });
+
+        document.getElementById('logout').addEventListener('click', function() {
+            localStorage.removeItem('token'); //fjerner token ved logout
+            window.location.href = 'login.html'; //send tilbake til login
+        });
     </script>
 </body>
 </html>
