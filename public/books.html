@@ -22,43 +22,35 @@
         };
 
         function loadBooks() {
-        const token = localStorage.getItem('token');
-        fetch('http://localhost:3000/books', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Kunne ikke hente bøker. Status: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(books => {
-            const bookListDiv = document.getElementById('book-list');
-            bookListDiv.innerHTML = ''; //tømmer div'en før vi fyller med bøker
-            if (books.length > 0) {
-                books.forEach(book => {
-                    const bookElement = document.createElement('div');
-                    bookElement.innerText = `Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter}`;
-                    bookListDiv.appendChild(bookElement);
-                });
-            } else {
-                bookListDiv.innerText = 'Ingen bøker tilgjengelig.';
-            }
-        })
-        .catch(error => {
-            console.error('Feil ved lasting av bøker:', error); // Legger til logging her
-            alert('Noe gikk galt ved lasting av bøker.');
-
-            console.log('Token:', token);  // Legg til denne linjen
+            const token = localStorage.getItem('token');
             fetch('http://localhost:3000/books', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}` }
-})
-
-        });
-    }
-
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Kunne ikke hente bøker. Status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(books => {
+                const bookListDiv = document.getElementById('book-list');
+                bookListDiv.innerHTML = ''; //tømmer div'en før vi fyller med bøker
+                if (books.length > 0) {
+                    books.forEach(book => {
+                        const bookElement = document.createElement('div');
+                        bookElement.innerText = `Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter}`;
+                        bookListDiv.appendChild(bookElement);
+                    });
+                } else {
+                    bookListDiv.innerText = 'Ingen bøker tilgjengelig.';
+                }
+            })
+            .catch(error => {
+                console.error('Feil ved lasting av bøker:', error); // Legger til logging her
+                alert('Noe gikk galt ved lasting av bøker.');
+            });
+        }
 
         document.getElementById('back-to-home').addEventListener('click', function() {
             window.location.href = 'index.html'; //tilbake til index.html
