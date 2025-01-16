@@ -121,15 +121,17 @@ app.get('/loans', authenticateToken, (req, res) => {
         JOIN 
             Elev E ON U.ElevID = E.ElevID
         WHERE 
-            U.Returdato IS NULL
+            U.Returdato IS NULL OR U.Returdato IS NOT NULL
     `;
     db.query(query, (err, results) => {
         if (err) {
             return res.status(500).json({ message: 'Feil ved henting av lån' });
         }
+        console.log(results);
         res.json(results);
     });
 });
+
 
 // Create new loan
 app.post('/loans', authenticateToken, (req, res) => {

@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bibliotek Utlånssystem</title>
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Bibliotek Utlånssystem</title>
+        <link rel="stylesheet" href="/public/style.css">
+        <script type="module">
+            import { format } from 'date-fns';
+        </script>
+    </head>
+    
 <body>
     <h1>Bokliste</h1>
     <div id="book-list">Laster bøker...</div>
@@ -17,7 +22,6 @@
         <input type="text" id="search-student" placeholder="Søk etter elev..." />
         <div id="student-list">Ingen elever funnet.</div>
 
-        <!-- Nytt input-felt for leveringsdato -->
         <label for="return-date">Leveringsdato:</label>
         <input type="date" id="return-date" required />
     </div>
@@ -54,42 +58,60 @@
         }
 
         function loadLoans() {
-            const token = localStorage.getItem('token');
-            fetch('http://localhost:3000/loans', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(res => res.json())
-            .then(loans => {
-                const loanListDiv = document.getElementById('loan-list');
-                if (loans.length > 0) {
-                    loanListDiv.innerHTML = loans.map(loan => `
-                        <div>Elev: ${loan.ElevNavn}, Bok: ${loan.BokTittel}, Utlånsdato: ${loan.Utlånsdato}, Returdato: ${loan.Returdato}
-                            <button onclick="handleReturn(${loan.UtlånsID})">Marker som innlevert</button>
-                        </div>
-                    `).join('');
-                } else {
-                    loanListDiv.innerText = 'Ingen elever låner noen bøker for øyeblikket.';
-                }
-            });
-        }
-
-    function searchStudents() {
     const token = localStorage.getItem('token');
-    const query = document.getElementById('search-student').value;
-    fetch(`http://localhost:3000/students?search=${query}`, {
+    fetch('http://localhost:3000/loans', {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
-    .then(students => {
-        const studentListDiv = document.getElementById('student-list');
-        studentListDiv.innerHTML = students.map(student => `
-            <div>${student.ElevNavn} (ElevID: ${student.ElevID}) 
-            <button onclick="confirmLoan(${student.ElevID})">Velg</button></div>
-        `).join('');
+    .then(loans => {
+        console.log(loans); // Legg til denne linjen for å sjekke dataene
+        const loanListDiv = document.getElementById('loan-list');
+        if (loans.length > 0) {
+            loanListDiv.innerHTML = loans.map(loan => {
+                const formattedUtlånsdato = new Date(loan.Utlånsdato).toLocaleDateString('no-NO');
+                let formattedReturDato = 'Ikke satt';
+                
+                if (loan.Returdato) {
+                    const returdato = new Date(loan.Returdato);
+                    if (!isNaN(returdato)) {
+                        formattedReturdato = returdato.toLocaleDateString('no-NO');
+                    }
+                }
+
+                return `
+                    <div>
+                        Elev: ${loan.ElevNavn}, Bok: ${loan.BokTittel}, 
+                        Utlånsdato: ${formattedUtlånsdato}, 
+                        Returdato: ${formattedReturdato}
+                        <button onclick="handleReturn(${loan.UtlånsID})">Marker som innlevert</button>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            loanListDiv.innerText = 'Ingen elever låner noen bøker for øyeblikket.';
+        }
     });
 }
+
+
+
+        function searchStudents() {
+            const token = localStorage.getItem('token');
+            const query = document.getElementById('search-student').value;
+            fetch(`http://localhost:3000/students?search=${query}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(students => {
+                const studentListDiv = document.getElementById('student-list');
+                studentListDiv.innerHTML = students.map(student => `
+                    <div>${student.ElevNavn} (ElevID: ${student.ElevID}) 
+                    <button onclick="confirmLoan(${student.ElevID})">Velg</button></div>
+                `).join('');
+            });
+        }
 
         function createLoan(bookId) {
             const selectedStudentId = prompt('Skriv inn ElevID for utlån:');
