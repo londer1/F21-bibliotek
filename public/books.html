@@ -16,6 +16,10 @@
     <div>
         <input type="text" id="search-student" placeholder="Søk etter elev..." />
         <div id="student-list">Ingen elever funnet.</div>
+
+        <!-- Nytt input-felt for leveringsdato -->
+        <label for="return-date">Leveringsdato:</label>
+        <input type="date" id="return-date" required />
     </div>
 
     <button id="back-to-home">Tilbake til Hjem</button>
@@ -60,7 +64,9 @@
                 const loanListDiv = document.getElementById('loan-list');
                 if (loans.length > 0) {
                     loanListDiv.innerHTML = loans.map(loan => `
-                        <div>Elev: ${loan.ElevNavn}, Bok: ${loan.BokTittel}, Utlånsdato: ${loan.Utlånsdato}</div>
+                        <div>Elev: ${loan.ElevNavn}, Bok: ${loan.BokTittel}, Utlånsdato: ${loan.Utlånsdato}, Returdato: ${loan.Returdato}
+                            <button onclick="handleReturn(${loan.UtlånsID})">Marker som innlevert</button>
+                        </div>
                     `).join('');
                 } else {
                     loanListDiv.innerText = 'Ingen elever låner noen bøker for øyeblikket.';
@@ -68,25 +74,30 @@
             });
         }
 
-        function searchStudents() {
-            const token = localStorage.getItem('token');
-            const query = document.getElementById('search-student').value;
-            fetch(`http://localhost:3000/students?search=${query}`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(res => res.json())
-            .then(students => {
-                const studentListDiv = document.getElementById('student-list');
-                studentListDiv.innerHTML = students.map(student => `
-                    <div>${student.ElevNavn} <button onclick="confirmLoan(${student.ElevID})">Velg</button></div>
-                `).join('');
-            });
-        }
+    function searchStudents() {
+    const token = localStorage.getItem('token');
+    const query = document.getElementById('search-student').value;
+    fetch(`http://localhost:3000/students?search=${query}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(students => {
+        const studentListDiv = document.getElementById('student-list');
+        studentListDiv.innerHTML = students.map(student => `
+            <div>${student.ElevNavn} (ElevID: ${student.ElevID}) 
+            <button onclick="confirmLoan(${student.ElevID})">Velg</button></div>
+        `).join('');
+    });
+}
 
         function createLoan(bookId) {
             const selectedStudentId = prompt('Skriv inn ElevID for utlån:');
-            if (!selectedStudentId) return;
+            const returnDate = document.getElementById('return-date').value;
+            if (!selectedStudentId || !returnDate) {
+                alert('Vennligst fyll ut ElevID og Leveringsdato!');
+                return;
+            }
 
             const token = localStorage.getItem('token');
             fetch('http://localhost:3000/loans', {
@@ -95,12 +106,29 @@
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ BokID: bookId, ElevID: selectedStudentId })
+                body: JSON.stringify({ BokID: bookId, ElevID: selectedStudentId, ReturDato: returnDate })
             })
             .then(res => res.json())
             .then(response => {
                 alert(response.message);
                 loadLoans();
+            });
+        }
+
+        function handleReturn(utlånsID) {
+            const token = localStorage.getItem('token');
+            fetch('http://localhost:3000/loans/return', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ UtlånsID: utlånsID })
+            }).then(response => {
+                if (response.ok) {
+                    alert('Bok markert som innlevert');
+                    loadLoans();
+                }
             });
         }
 
