@@ -127,6 +127,51 @@ app.post('/books', authenticateToken, (req, res) => {
     });
 });
 
+//søke på elever
+app.get('/students', authenticateToken, (req, res) => {
+    const searchQuery = req.query.search || '';
+    const query = 'SELECT ElevID, CONCAT(Fornavn, " ", Etternavn) AS ElevNavn FROM Elev WHERE CONCAT(Fornavn, " ", Etternavn) LIKE ?';
+    db.query(query, [`%${searchQuery}%`], (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: 'Feil ved henting av elever' });
+        }
+        res.json(results);
+    });
+});
+
+//aktive utlån
+app.get('/loans', authenticateToken, (req, res) => {
+    const query = `
+        SELECT 
+            U.UtlånsID, 
+            B.Tittel AS BokTittel, 
+            CONCAT(E.Fornavn, " ", E.Etternavn) AS ElevNavn, 
+            U.Utlånsdato 
+        FROM Utlånsoversikt U
+        JOIN Biblioteksbøker B ON U.BokID = B.BokID
+        JOIN Elev E ON U.ElevID = E.ElevID
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: 'Feil ved henting av utlån' });
+        }
+        res.json(results);
+    });
+});
+
+//opprette utlån
+app.post('/loans', authenticateToken, (req, res) => {
+    const { BokID, ElevID } = req.body;
+    const query = 'INSERT INTO Utlånsoversikt (BokID, ElevID, Utlånsdato) VALUES (?, ?, NOW())';
+    db.query(query, [BokID, ElevID], (err) => {
+        if (err) {
+            return res.status(500).json({ message: 'Feil ved oppretting av utlån' });
+        }
+        res.status(201).json({ message: 'Utlån opprettet' });
+    });
+});
+
+
 //server statisk HTML for root
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));

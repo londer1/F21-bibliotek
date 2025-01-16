@@ -3,21 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bøker - Bibliotek Utlånssystem</title>
+    <title>Bibliotek Utlånssystem</title>
 </head>
 <body>
     <h1>Bokliste</h1>
-
     <div id="book-list">Laster bøker...</div>
+
+    <h2>Elever som låner bøker</h2>
+    <div id="loan-list">Laster låneoversikt...</div>
+
+    <h2>Opprett nytt utlån</h2>
+    <div>
+        <input type="text" id="search-student" placeholder="Søk etter elev..." />
+        <div id="student-list">Ingen elever funnet.</div>
+    </div>
+
     <button id="back-to-home">Tilbake til Hjem</button>
 
     <script>
         window.onload = () => {
             const token = localStorage.getItem('token');
             if (!token) {
-                window.location.href = 'login.html'; //hvis ikke logget inn send til login.html
+                window.location.href = 'login.html';
             } else {
                 loadBooks();
+                loadLoans();
             }
         };
 
@@ -27,33 +37,77 @@
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}` }
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Kunne ikke hente bøker. Status: ' + response.status);
-                }
-                return response.json();
-            })
+            .then(res => res.json())
             .then(books => {
                 const bookListDiv = document.getElementById('book-list');
-                bookListDiv.innerHTML = ''; //tømmer div'en før vi fyller med bøker
-                if (books.length > 0) {
-                    books.forEach(book => {
-                        const bookElement = document.createElement('div');
-                        bookElement.innerText = `Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter}`;
-                        bookListDiv.appendChild(bookElement);
-                    });
-                } else {
-                    bookListDiv.innerText = 'Ingen bøker tilgjengelig.';
-                }
-            })
-            .catch(error => {
-                console.error('Feil ved lasting av bøker:', error); // Legger til logging her
-                alert('Noe gikk galt ved lasting av bøker.');
+                bookListDiv.innerHTML = books.map(book => `
+                    <div>
+                        Tittel: ${book.Tittel}, Forfatter: ${book.Forfatter} 
+                        <button onclick="createLoan(${book.BokID})">Lån</button>
+                    </div>
+                `).join('');
             });
         }
 
+        function loadLoans() {
+            const token = localStorage.getItem('token');
+            fetch('http://localhost:3000/loans', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(loans => {
+                const loanListDiv = document.getElementById('loan-list');
+                if (loans.length > 0) {
+                    loanListDiv.innerHTML = loans.map(loan => `
+                        <div>Elev: ${loan.ElevNavn}, Bok: ${loan.BokTittel}, Utlånsdato: ${loan.Utlånsdato}</div>
+                    `).join('');
+                } else {
+                    loanListDiv.innerText = 'Ingen elever låner noen bøker for øyeblikket.';
+                }
+            });
+        }
+
+        function searchStudents() {
+            const token = localStorage.getItem('token');
+            const query = document.getElementById('search-student').value;
+            fetch(`http://localhost:3000/students?search=${query}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(students => {
+                const studentListDiv = document.getElementById('student-list');
+                studentListDiv.innerHTML = students.map(student => `
+                    <div>${student.ElevNavn} <button onclick="confirmLoan(${student.ElevID})">Velg</button></div>
+                `).join('');
+            });
+        }
+
+        function createLoan(bookId) {
+            const selectedStudentId = prompt('Skriv inn ElevID for utlån:');
+            if (!selectedStudentId) return;
+
+            const token = localStorage.getItem('token');
+            fetch('http://localhost:3000/loans', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ BokID: bookId, ElevID: selectedStudentId })
+            })
+            .then(res => res.json())
+            .then(response => {
+                alert(response.message);
+                loadLoans();
+            });
+        }
+
+        document.getElementById('search-student').addEventListener('input', searchStudents);
+
         document.getElementById('back-to-home').addEventListener('click', function() {
-            window.location.href = 'index.html'; //tilbake til index.html
+            window.location.href = 'index.html';
         });
     </script>
 </body>
