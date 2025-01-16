@@ -33,26 +33,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-//autentisere token
-const authHeader = req.headers['authorization'];
-if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.sendStatus(403);
-}
-const token = authHeader.split(' ')[1];
-
+//middleware for authentication
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.sendStatus(403);
+    }
+    const token = authHeader.split(' ')[1];
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
             return res.sendStatus(403);
         }
-        console.log('User from token:', user);
         req.user = user;
         next();
     });
-
-    console.log('Authorization Header:', token); {
-    };
+};
 
 //registrering
 app.post('/register', (req, res) => {
@@ -74,11 +70,7 @@ app.post('/register', (req, res) => {
     });
 });
 
-//login rute
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html')); // sender login.html fra 'public' mappen
-});
-
+//login
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -109,6 +101,7 @@ app.post('/login', (req, res) => {
     });
 });
 
+//hent alle bøker (krever autentisering)
 app.get('/books', authenticateToken, (req, res) => {
     const query = 'SELECT * FROM Biblioteksbøker';
     db.query(query, (err, result) => {
@@ -116,12 +109,11 @@ app.get('/books', authenticateToken, (req, res) => {
             console.error('Feil med SQL-spørring:', err);
             return res.status(500).json({ message: 'Feil ved henting av bøker' });
         }
-        console.log('Resultat fra SQL:', result);
         res.json(result);
     });
 });
 
-
+//legg til ny bok (krever autentisering og bibliotekar)
 app.post('/books', authenticateToken, (req, res) => {
     if (req.user.role !== 'bibliotekar') return res.sendStatus(403);
 
@@ -135,10 +127,12 @@ app.post('/books', authenticateToken, (req, res) => {
     });
 });
 
+//server statisk HTML for root
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+//start server shortcut
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
