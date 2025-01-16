@@ -35,12 +35,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 //autentisere token
-const authenticateToken = (req, res, next) => {
-    const token = req.headers['authorization'];
-    console.log('Authorization Header:', token);//log
-    if (!token) {
-        return res.sendStatus(403);
-    }
+const authHeader = req.headers['authorization'];
+if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.sendStatus(403);
+}
+const token = authHeader.split(' ')[1];
+
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
@@ -51,9 +51,8 @@ const authenticateToken = (req, res, next) => {
         next();
     });
 
-    console.log('Authorization Header:', token);
-
-};
+    console.log('Authorization Header:', token); {
+    };
 
 //registrering
 app.post('/register', (req, res) => {
