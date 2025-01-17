@@ -4,12 +4,9 @@ const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 const path = require('path');
-const cors = require('cors');
 
 const app = express();
 const port = 3000;
-
-app.use(express.static(path.join(__dirname, 'public')));
 
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -26,6 +23,7 @@ db.connect(err => {
     }
 });
 
+const cors = require('cors');
 app.use(cors({
     origin: 'http://localhost:3000',
     methods: ['GET', 'POST'],
@@ -33,6 +31,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 //middleware for authentication
 const authenticateToken = (req, res, next) => {
@@ -51,7 +50,27 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Login
+//registrering
+app.post('/register', (req, res) => {
+    const { username, password, role } = req.body;
+
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+        if (err) {
+            return res.status(500).json({ message: 'Feil ved hashing av passord' });
+        }
+
+        const query = 'INSERT INTO Brukere (username, password, role) VALUES (?, ?, ?)';
+        db.query(query, [username, hashedPassword, role], (err) => {
+            if (err) {
+                return res.status(500).json({ message: 'Feil ved innsending av brukerdata' });
+            }
+
+            res.status(201).json({ message: 'Bruker registrert' });
+        });
+    });
+});
+
+//login
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -66,6 +85,7 @@ app.post('/login', (req, res) => {
         }
 
         const user = results[0];
+
         bcrypt.compare(password, user.password, (err, isMatch) => {
             if (err) {
                 return res.status(500).json({ message: 'Feil ved passordverifisering' });
@@ -81,7 +101,7 @@ app.post('/login', (req, res) => {
     });
 });
 
-// Get all books
+//hent alle bøker (krever autentisering)
 app.get('/books', authenticateToken, (req, res) => {
     const query = 'SELECT * FROM Biblioteksbøker';
     db.query(query, (err, result) => {
@@ -93,7 +113,21 @@ app.get('/books', authenticateToken, (req, res) => {
     });
 });
 
-// Get students by search query
+//legg til ny bok (krever autentisering og bibliotekar)
+app.post('/books', authenticateToken, (req, res) => {
+    if (req.user.role !== 'bibliotekar') return res.sendStatus(403);
+
+    const { tittel, forfatter, isbn } = req.body;
+    const query = 'INSERT INTO Biblioteksbøker (Tittel, Forfatter, ISBN) VALUES (?, ?, ?)';
+    db.query(query, [tittel, forfatter, isbn], (err, result) => {
+        if (err) {
+            return res.status(500).json({ message: 'Feil ved innsending av bokdata' });
+        }
+        res.status(201).json({ message: 'Bok lagt til', bokID: result.insertId });
+    });
+});
+
+//søke på elever
 app.get('/students', authenticateToken, (req, res) => {
     const searchQuery = req.query.search || '';
     const query = 'SELECT ElevID, CONCAT(Fornavn, " ", Etternavn) AS ElevNavn FROM Elev WHERE CONCAT(Fornavn, " ", Etternavn) LIKE ?';
@@ -105,59 +139,45 @@ app.get('/students', authenticateToken, (req, res) => {
     });
 });
 
-// Get all active loans
+//aktive utlån
 app.get('/loans', authenticateToken, (req, res) => {
     const query = `
         SELECT 
             U.UtlånsID, 
             B.Tittel AS BokTittel, 
-            CONCAT(E.Fornavn, " ", E.Etternavn, " (ElevID ", E.ElevID, ")") AS ElevNavn, 
-            U.Utlånsdato, 
-            U.Returdato
-        FROM 
-            Utlånsoversikt U
-        JOIN 
-            Biblioteksbøker B ON U.BokID = B.BokID
-        JOIN 
-            Elev E ON U.ElevID = E.ElevID
-        WHERE 
-            U.Returdato IS NULL OR U.Returdato IS NOT NULL
+            CONCAT(E.Fornavn, " ", E.Etternavn) AS ElevNavn, 
+            U.Utlånsdato 
+        FROM Utlånsoversikt U
+        JOIN Biblioteksbøker B ON U.BokID = B.BokID
+        JOIN Elev E ON U.ElevID = E.ElevID
     `;
     db.query(query, (err, results) => {
         if (err) {
-            return res.status(500).json({ message: 'Feil ved henting av lån' });
+            return res.status(500).json({ message: 'Feil ved henting av utlån' });
         }
-        console.log(results);
         res.json(results);
     });
 });
 
-
-// Create new loan
+//opprette utlån
 app.post('/loans', authenticateToken, (req, res) => {
-    const { BokID, ElevID, ReturDato } = req.body;
-    const query = 'INSERT INTO Utlånsoversikt (BokID, ElevID, Utlånsdato, ReturDato) VALUES (?, ?, NOW(), ?)';
-    db.query(query, [BokID, ElevID, ReturDato], (err, result) => {
+    const { BokID, ElevID } = req.body;
+    const query = 'INSERT INTO Utlånsoversikt (BokID, ElevID, Utlånsdato) VALUES (?, ?, NOW())';
+    db.query(query, [BokID, ElevID], (err) => {
         if (err) {
-            return res.status(500).json({ message: 'Feil ved opprettelse av lån' });
+            return res.status(500).json({ message: 'Feil ved oppretting av utlån' });
         }
-        res.json({ message: 'Lån opprettet!' });
+        res.status(201).json({ message: 'Utlån opprettet' });
     });
 });
 
 
-// Return book (delete loan)
-app.post('/loans/return', authenticateToken, (req, res) => {
-    const { UtlånsID } = req.body;
-    const query = 'DELETE FROM Utlånsoversikt WHERE UtlånsID = ?';
-    db.query(query, [UtlånsID], (err, result) => {
-        if (err) {
-            return res.status(500).json({ message: 'Feil ved markering av bok som returnert' });
-        }
-        res.json({ message: 'Bok returnert!' });
-    });
+//server statisk HTML for root
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+//start server shortcut
 app.listen(port, () => {
-    console.log(`Server kjører på http://localhost:${port}`);
+    console.log(`Server running on port ${port}`);
 });
