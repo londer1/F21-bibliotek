@@ -30,6 +30,28 @@ app.use(cors({
     allowedHeaders: ['Authorization', 'Content-Type']
 }));
 
+fetch('http://localhost:3000/login', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        username: 'ditt-brukernavn',
+        password: 'ditt-passord'
+    })
+    })
+    .then(response => response.json())
+    .then(data => {
+    console.log('Token mottatt:', data.token);
+    if (data.token) {
+        localStorage.setItem('token', data.token);
+    } else {
+        console.error('Token mangler i svaret fra serveren');
+    }
+    })
+    .catch(error => console.error('Feil under innlogging:', error));
+    
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
