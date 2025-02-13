@@ -1,82 +1,64 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const mysql = require('mysql2');
-const bcrypt = require('bcryptjs');
-require('dotenv').config();
-const path = require('path');
+// Importerer de tingene vi trenger
+const express = require('express'); // Bror, dette lager serveren vår
+const jwt = require('jsonwebtoken'); // For å lage tokens, sånn at folk må logge inn
+const mysql = require('mysql2'); // Snakker med MySQL databasen
+const bcrypt = require('bcryptjs'); // Hasher passord så ingen kan se dem, ekte hemmelig opplegg
+require('dotenv').config(); // Henter hemmelige ting fra .env-fila
+const path = require('path'); // Hjelper med fil-stier, så vi finner ting i prosjektet
 
-const app = express();
-const port = 3000;
+const app = express(); // Lager selve serveren
+const port = 3000; // Setter hvilken port serveren skal kjøre på
 
+// Koble til MySQL, wallah hvis dette feiler, vi er ferdige
 const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    host: process.env.DB_HOST, // Henter database-host fra .env
+    user: process.env.DB_USER, // Brukernavn
+    password: process.env.DB_PASSWORD, // Passord
+    database: process.env.DB_NAME // Databasenavn
 });
 
+// Prøver å koble til databasen, vi må sjekke om det funker
 db.connect(err => {
     if (err) {
-        console.error('Kunne ikke koble til databasen:', err);
+        console.error('Kunne ikke koble til databasen:', err); // Bro, hvis det feiler, vi må fikse
     } else {
-        console.log('Koblet til MySQL-databasen');
+        console.log('Koblet til MySQL-databasen 🔥'); // Easy peasy, vi inne
     }
 });
 
+// CORS, lar frontend snakke med backend
 const cors = require('cors');
 app.use(cors({
-    origin: 'http://localhost:3000',
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Authorization', 'Content-Type']
+    origin: 'http://localhost:3000', // Kun frontend kan snakke med oss
+    methods: ['GET', 'POST'], // Vi tillater bare disse metodene
+    allowedHeaders: ['Authorization', 'Content-Type'] // Viktig for tokens og JSON
 }));
 
-fetch('http://localhost:3000/login', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        username: 'ditt-brukernavn',
-        password: 'ditt-passord'
-    })
-    })
-    .then(response => response.json())
-    .then(data => {
-    console.log('Token mottatt:', data.token);
-    if (data.token) {
-        localStorage.setItem('token', data.token);
-    } else {
-        console.error('Token mangler i svaret fra serveren');
-    }
-    })
-    .catch(error => console.error('Feil under innlogging:', error));
-    
+app.use(express.json()); // Wallah, vi må lese JSON i requestene
+app.use(express.static(path.join(__dirname, 'public'))); // Gjør at vi kan servere HTML-filer fra "public"-mappa
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-//middleware for authentication
+// Middleware for å sjekke om folk har riktig token
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
+    const authHeader = req.headers['authorization']; // Tar ut token fra header
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.sendStatus(403);
+        return res.sendStatus(403); // Ingen token? Bror, du får ikke komme inn
     }
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(' ')[1]; // Fjerner "Bearer" fra token
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
-            return res.sendStatus(403);
+            return res.sendStatus(403); // Ugyldig token? UT
         }
-        req.user = user;
-        next();
+        req.user = user; // Lagrer brukeren i requesten
+        next(); // Lar dem gå videre
     });
 };
 
-//registrering
+// Lage ny bruker, wallah dette er viktig
 app.post('/register', (req, res) => {
-    const { username, password, role } = req.body;
+    const { username, password, role } = req.body; // Henter brukernavn, passord og rolle
 
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
+    bcrypt.hash(password, 10, (err, hashedPassword) => { // Hasher passordet så ingen kan lese det
         if (err) {
             return res.status(500).json({ message: 'Feil ved hashing av passord' });
         }
@@ -86,13 +68,12 @@ app.post('/register', (req, res) => {
             if (err) {
                 return res.status(500).json({ message: 'Feil ved innsending av brukerdata' });
             }
-
-            res.status(201).json({ message: 'Bruker registrert' });
+            res.status(201).json({ message: 'Bruker registrert, velkommen inn bror!' });
         });
     });
 });
 
-//login
+// Login, bror du må bevise at du hører til her
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -118,26 +99,25 @@ app.post('/login', (req, res) => {
             }
 
             const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.json({ token });
+            res.json({ token }); // Sender token så bror kan gå videre
         });
     });
 });
 
-//hent alle bøker (krever autentisering)
+// Hente alle bøker, men du må ha token
 app.get('/books', authenticateToken, (req, res) => {
     const query = 'SELECT * FROM Biblioteksbøker';
     db.query(query, (err, result) => {
         if (err) {
-            console.error('Feil med SQL-spørring:', err);
             return res.status(500).json({ message: 'Feil ved henting av bøker' });
         }
-        res.json(result);
+        res.json(result); // Sender bøkene til frontend
     });
 });
 
-//legg til ny bok (krever autentisering og bibliotekar)
+// Legge til ny bok, men bare bibliotekar kan gjøre det
 app.post('/books', authenticateToken, (req, res) => {
-    if (req.user.role !== 'bibliotekar') return res.sendStatus(403);
+    if (req.user.role !== 'bibliotekar') return res.sendStatus(403); // Ikke bibliotekar? GTFO bror
 
     const { tittel, forfatter, isbn } = req.body;
     const query = 'INSERT INTO Biblioteksbøker (Tittel, Forfatter, ISBN) VALUES (?, ?, ?)';
@@ -145,11 +125,11 @@ app.post('/books', authenticateToken, (req, res) => {
         if (err) {
             return res.status(500).json({ message: 'Feil ved innsending av bokdata' });
         }
-        res.status(201).json({ message: 'Bok lagt til', bokID: result.insertId });
+        res.status(201).json({ message: 'Bok lagt til, bror vi bygger biblioteket!' });
     });
 });
 
-//søke på elever
+// Søke på elever, men du må være logga inn
 app.get('/students', authenticateToken, (req, res) => {
     const searchQuery = req.query.search || '';
     const query = 'SELECT ElevID, CONCAT(Fornavn, " ", Etternavn) AS ElevNavn FROM Elev WHERE CONCAT(Fornavn, " ", Etternavn) LIKE ?';
@@ -161,7 +141,7 @@ app.get('/students', authenticateToken, (req, res) => {
     });
 });
 
-//aktive utlån
+// Hente aktive utlån
 app.get('/loans', authenticateToken, (req, res) => {
     const query = `
         SELECT 
@@ -181,7 +161,7 @@ app.get('/loans', authenticateToken, (req, res) => {
     });
 });
 
-//opprette utlån
+// Opprette utlån
 app.post('/loans', authenticateToken, (req, res) => {
     const { BokID, ElevID } = req.body;
     const query = 'INSERT INTO Utlånsoversikt (BokID, ElevID, Utlånsdato) VALUES (?, ?, NOW())';
@@ -189,17 +169,11 @@ app.post('/loans', authenticateToken, (req, res) => {
         if (err) {
             return res.status(500).json({ message: 'Feil ved oppretting av utlån' });
         }
-        res.status(201).json({ message: 'Utlån opprettet' });
+        res.status(201).json({ message: 'Utlån opprettet, ei bror jævla nørd' });
     });
 });
 
-
-//server statisk HTML for root
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-//start server shortcut
+// Kjøre serveren
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+    console.log(`Server running on port ${port}, bror!`);
 });
